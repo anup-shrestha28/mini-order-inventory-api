@@ -10,6 +10,7 @@ import env from './config/env';
 import logger from './utils/logger';
 import routes from './routes';
 import openapiSpec from './docs/openapi';
+import { apiRateLimiter } from './middleware/rateLimit.middleware';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 
 const app = express();
@@ -29,7 +30,11 @@ app.get('/api/docs.json', (_req, res) => {
 
 // --- Security & parsing middleware ---
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: env.CORS_ORIGIN === '*' ? '*' : env.CORS_ORIGIN.split(',').map((o) => o.trim()),
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 // Strip keys containing `$`/`.` to blunt NoSQL-injection attempts.
@@ -52,6 +57,11 @@ app.get('/health', (_req, res) => {
     },
   });
 });
+
+// --- Rate limiting on the public API (disabled under test to keep suites fast) ---
+if (env.NODE_ENV !== 'test') {
+  app.use('/api/v1', apiRateLimiter);
+}
 
 // --- API routes ---
 app.use('/api/v1', routes);

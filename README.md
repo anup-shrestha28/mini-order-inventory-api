@@ -323,9 +323,9 @@ Tests use an **in-memory MongoDB replica set** (`mongodb-memory-server`), so no 
 
 - **JWT** auth; passwords hashed with bcrypt (via `bcryptjs`).
 - **Role-based access control** enforced in middleware, not controllers.
-- **helmet** (secure headers), configurable **cors**.
-- **express-mongo-sanitize** + careful query construction to blunt NoSQL injection.
-- **Rate limiting** on public endpoints.
+- **helmet** (secure headers) and **cors** configurable via `CORS_ORIGIN`.
+- **express-mongo-sanitize** + queries built only from validated primitives → NoSQL-injection resistant.
+- **Rate limiting** on the `/api/v1` API (env-configurable), returning the standard error envelope on `429`.
 - **No secrets in the repo** — all config via environment variables.
 
 ## Requirement Coverage
@@ -361,8 +361,8 @@ Access control is enforced in middleware (`authenticate` + `authorize`), not in 
 | Goal (from PDF §4)                                          | Status      |
 | ---------------------------------------------------------- | ----------- |
 | CI pipeline (lint + tests on push)                         | ⏳ Optional  |
-| Structured logging (pino) + `/health` endpoint             | ✅ Foundation |
-| Rate limiting on a public endpoint                         | ✅ Foundation |
+| Structured logging (pino) + `/health` endpoint             | ✅ Done      |
+| Rate limiting on a public endpoint                         | ✅ Done      |
 | Caching (Redis) for a read-heavy endpoint                  | ⏳ Optional  |
 | Live cloud deployment                                      | ⏳ Optional  |
 | Microservice / Kubernetes decomposition note              | ⏳ Optional  |
