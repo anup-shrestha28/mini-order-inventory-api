@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Environment & secrets (NEVER commit real secrets) — .env.example IS committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage output
+coverage/
+.nyc_output/
+
+# TypeScript build output & caches
+dist/
+build/
+*.tsbuildinfo
+.eslintcache
+
+# mongodb-memory-server cached binaries
+.cache/
+.mongodb-binaries/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

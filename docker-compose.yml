@@ -1,0 +1,54 @@
+# Brings up the API and its MongoDB together with a single command:
+#   cp .env.example .env && docker compose up --build
+#
+# MongoDB runs as a single-node replica set (rs0). A replica set is required
+# for multi-document transactions, which the order-creation flow uses to make
+# multi-item stock decrements atomic (all-or-nothing).
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: moi_mongo
+    restart: unless-stopped
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    # Initializes the replica set on first boot, then reports healthy only once
+    # the node is an electable, writable primary (ready for transactions).
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          mongosh --quiet --eval "
+          try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) }
+          if (!db.hello().isWritablePrimary) { quit(1) }
+          "
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 15s
+
+  app:
+    build: .
+    container_name: moi_app
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Connect to the bundled replica set (service name `mongo` on the compose network).
+      MONGO_URI: mongodb://mongo:27017/mini_order_inventory?replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+    ports:
+      - '3000:3000'
+
+volumes:
+  mongo_data:
