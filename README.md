@@ -231,7 +231,10 @@ Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": 
 | POST   | `/api/v1/products`      | admin  | Create a product                                   |
 | PATCH  | `/api/v1/products/:id`  | admin  | Update a product                                   |
 | DELETE | `/api/v1/products/:id`  | admin  | Delete a product                                   |
-| _…orders endpoints documented as they are implemented…_ | | | |
+| POST   | `/api/v1/orders`        | auth   | Place an order — atomic stock decrement (201)      |
+| GET    | `/api/v1/orders`        | auth   | List orders — own (customer) / all (admin); paginated + filter (`status`, `from`/`to`) |
+| GET    | `/api/v1/orders/:id`    | auth   | Get one order (own; admin can view any)            |
+| POST   | `/api/v1/orders/:id/cancel` | auth | Cancel an order + restore stock atomically       |
 
 ### Example requests
 
@@ -332,27 +335,26 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | # | Requirement (from PDF §3)                                             | Status         |
 | - | -------------------------------------------------------------------- | -------------- |
 | 3.1 | JWT auth (signup/login), hashed passwords (bcrypt)                 | ✅ Done        |
-| 3.1 | Roles (admin/customer) + auth & role middleware                    | ✅ Done¹       |
-| 3.1 | Admin: CRUD products / view all orders                             | ✅ Products / ⏳ orders (P3) |
-| 3.1 | Customer: browse products / place & view own orders                | ✅ Browse / ⏳ orders (P3)   |
+| 3.1 | Roles (admin/customer) + auth & role middleware                    | ✅ Done        |
+| 3.1 | Admin: CRUD products + view all orders                             | ✅ Done        |
+| 3.1 | Customer: browse products, place & view own orders                 | ✅ Done        |
 | 3.2 | Product CRUD (name, price, stock, category), admin-only writes     | ✅ Done        |
 | 3.2 | Model-level schema validation                                      | ✅ Done        |
-| 3.3 | Order creation: atomic stock validation + decrement (no oversell)  | ⏳ Phase 3     |
-| 3.3 | Clear errors: insufficient stock / missing product / bad quantity  | ⏳ Phase 3     |
-| 3.4 | Pagination + at least one filter on a list endpoint                | ✅ Done        |
+| 3.3 | Order creation: atomic stock validation + decrement (no oversell)  | ✅ Done        |
+| 3.3 | Clear errors: insufficient stock / missing product / bad quantity  | ✅ Done        |
+| 3.4 | Pagination + at least one filter (products & orders)               | ✅ Done        |
 | 3.5 | Consistent structured error format                                 | ✅ Done        |
-| 3.5 | Schema-based input validation on write endpoints (Zod)             | 🟡 Auth + products² |
+| 3.5 | Schema-based input validation on write endpoints (Zod)             | ✅ Done        |
 | 3.6 | Security middleware (helmet, cors)                                 | ✅ Foundation  |
 | 3.6 | No secrets committed                                               | ✅ Done        |
 | 3.6 | NoSQL-injection protection                                         | ✅ Foundation  |
-| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ⏳ Planned     |
+| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ✅ Done (44 tests) |
 | 3.8 | Dockerfile                                                         | ✅ Done        |
 | 3.8 | docker-compose (app + MongoDB, single command)                    | ✅ Done        |
 | 3.8 | Env-based configuration                                            | ✅ Done        |
 | 3.9 | README: setup, design decisions, API docs                          | ✅ In progress |
 
-¹ `authenticate` and `authorize` middleware are implemented and test-covered; `authorize('admin')` is attached to admin-only routes as they are built (Phase 2–3).
-² Signup/login and all product write endpoints are Zod-validated (plus query validation on the product list); order write endpoints get their schemas in Phase 3.
+Access control is enforced in middleware (`authenticate` + `authorize`), not in controllers: `authorize('admin')` guards product writes, and order routes are scoped by ownership (customers see/act on only their own orders; admins on any).
 
 ## Stretch Goals
 

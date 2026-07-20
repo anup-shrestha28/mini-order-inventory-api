@@ -17,6 +17,7 @@ const openapiSpec = {
   tags: [
     { name: 'Auth', description: 'Signup, login, and current user' },
     { name: 'Products', description: 'Product catalog — public reads, admin-only writes' },
+    { name: 'Orders', description: 'Order placement, listing, and cancellation' },
   ],
   components: {
     securitySchemes: {
@@ -85,6 +86,53 @@ const openapiSpec = {
         properties: {
           success: { type: 'boolean', example: true },
           data: { type: 'array', items: { $ref: '#/components/schemas/Product' } },
+          meta: { $ref: '#/components/schemas/PaginationMeta' },
+        },
+      },
+      OrderItem: {
+        type: 'object',
+        properties: {
+          product: { type: 'string', description: 'Product id' },
+          name: { type: 'string', example: 'Wireless Mouse' },
+          priceAtPurchase: { type: 'number', example: 25.99 },
+          quantity: { type: 'integer', example: 2 },
+        },
+      },
+      Order: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          user: { type: 'string', description: 'User id (populated as {id,name,email} on reads)' },
+          items: { type: 'array', items: { $ref: '#/components/schemas/OrderItem' } },
+          totalAmount: { type: 'number', example: 55.98 },
+          status: { type: 'string', enum: ['pending', 'confirmed', 'cancelled'], example: 'pending' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateOrderInput: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['productId', 'quantity'],
+              properties: {
+                productId: { type: 'string', example: '66b0f2a1c3d4e5f6a7b8c9d0' },
+                quantity: { type: 'integer', minimum: 1, example: 2 },
+              },
+            },
+          },
+        },
+      },
+      OrderListResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: { type: 'array', items: { $ref: '#/components/schemas/Order' } },
           meta: { $ref: '#/components/schemas/PaginationMeta' },
         },
       },
@@ -262,6 +310,65 @@ const openapiSpec = {
           401: { description: 'Not authenticated' },
           403: { description: 'Not an admin' },
           404: { description: 'Product not found' },
+        },
+      },
+    },
+    '/orders': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Place an order (authenticated)',
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateOrderInput' } } } },
+        responses: {
+          201: { description: 'Order placed', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { order: { $ref: '#/components/schemas/Order' } } } } } } } },
+          400: { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          401: { description: 'Not authenticated' },
+          404: { description: 'Product not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          409: { description: 'Insufficient stock', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      get: {
+        tags: ['Orders'],
+        summary: 'List orders (own for customers, all for admins)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 100 } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'confirmed', 'cancelled'] } },
+          { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'createdAt >= from' },
+          { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'createdAt <= to' },
+          { name: 'sort', in: 'query', schema: { type: 'string', enum: ['createdAt', '-createdAt', 'totalAmount', '-totalAmount'], default: '-createdAt' } },
+        ],
+        responses: {
+          200: { description: 'Paginated orders', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderListResponse' } } } },
+          401: { description: 'Not authenticated' },
+        },
+      },
+    },
+    '/orders/{id}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get an order by id (own for customers, any for admins)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'The order', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { order: { $ref: '#/components/schemas/Order' } } } } } } } },
+          401: { description: 'Not authenticated' },
+          404: { description: 'Order not found' },
+        },
+      },
+    },
+    '/orders/{id}/cancel': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Cancel an order and restore stock (own for customers, any for admins)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Order cancelled', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { order: { $ref: '#/components/schemas/Order' } } } } } } } },
+          401: { description: 'Not authenticated' },
+          404: { description: 'Order not found' },
+          409: { description: 'Order already cancelled' },
         },
       },
     },
