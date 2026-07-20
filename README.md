@@ -214,13 +214,34 @@ All configuration is via environment variables (never hard-coded). See `.env.exa
 
 ## API Documentation
 
-Base URL: `/api/v1`. The full endpoint table plus copy-paste **example requests** (curl) for each flow — signup → login → create product (admin) → place order → list orders — are added here as the endpoints land (see [Requirement Coverage](#requirement-coverage)).
+Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"? } }`. More endpoints are documented here as they land.
 
-| Method | Endpoint             | Auth      | Description                                   |
-| ------ | -------------------- | --------- | --------------------------------------------- |
-| GET    | `/health`            | public    | Liveness + DB connection status               |
-| GET    | `/api/v1`            | public    | API metadata                                  |
-| _…auth, products, orders endpoints documented as implemented…_ | | | |
+| Method | Endpoint                | Auth   | Description                                        |
+| ------ | ----------------------- | ------ | -------------------------------------------------- |
+| GET    | `/health`               | public | Liveness + DB connection status                    |
+| GET    | `/api/v1`               | public | API metadata                                       |
+| POST   | `/api/v1/auth/signup`   | public | Register a new customer; returns `{ user, token }` |
+| POST   | `/api/v1/auth/login`    | public | Authenticate; returns `{ user, token }`            |
+| GET    | `/api/v1/auth/me`       | Bearer | The current authenticated user                     |
+| _…products, orders endpoints documented as they are implemented…_ | | | |
+
+### Example requests
+
+```bash
+# Register a customer (response includes a JWT)
+curl -X POST http://localhost:3000/api/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com","password":"password123"}'
+
+# Log in
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","password":"password123"}'
+
+# Call a protected endpoint with the token from the response
+curl http://localhost:3000/api/v1/auth/me \
+  -H "Authorization: Bearer <TOKEN>"
+```
 
 ### Test Accounts
 
@@ -290,17 +311,17 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 
 | # | Requirement (from PDF §3)                                             | Status         |
 | - | -------------------------------------------------------------------- | -------------- |
-| 3.1 | JWT auth (signup/login), hashed passwords                          | ⏳ Planned     |
-| 3.1 | Two roles (admin/customer) enforced via middleware                 | ⏳ Planned     |
-| 3.1 | Admin: CRUD products + view all orders                             | ⏳ Planned     |
-| 3.1 | Customer: browse products, place/view own orders                  | ⏳ Planned     |
-| 3.2 | Product CRUD (name, price, stock, category), admin-only writes     | ⏳ Planned     |
-| 3.2 | Model-level schema validation                                      | ⏳ Planned     |
-| 3.3 | Order creation: atomic stock validation + decrement (no oversell)  | ⏳ Planned     |
-| 3.3 | Clear errors: insufficient stock / missing product / bad quantity  | ⏳ Planned     |
-| 3.4 | Pagination + at least one filter on a list endpoint                | ⏳ Planned     |
-| 3.5 | Consistent structured error format                                 | ✅ Foundation  |
-| 3.5 | Schema-based input validation on write endpoints (Zod)             | ⏳ Planned     |
+| 3.1 | JWT auth (signup/login), hashed passwords (bcrypt)                 | ✅ Done        |
+| 3.1 | Roles (admin/customer) + auth & role middleware                    | ✅ Done¹       |
+| 3.1 | Admin: CRUD products + view all orders                             | ⏳ Phase 2–3   |
+| 3.1 | Customer: browse products, place/view own orders                  | ⏳ Phase 2–3   |
+| 3.2 | Product CRUD (name, price, stock, category), admin-only writes     | ⏳ Phase 2     |
+| 3.2 | Model-level schema validation                                      | ⏳ Phase 2     |
+| 3.3 | Order creation: atomic stock validation + decrement (no oversell)  | ⏳ Phase 3     |
+| 3.3 | Clear errors: insufficient stock / missing product / bad quantity  | ⏳ Phase 3     |
+| 3.4 | Pagination + at least one filter on a list endpoint                | ⏳ Phase 2–3   |
+| 3.5 | Consistent structured error format                                 | ✅ Done        |
+| 3.5 | Schema-based input validation on write endpoints (Zod)             | 🟡 Auth done²  |
 | 3.6 | Security middleware (helmet, cors)                                 | ✅ Foundation  |
 | 3.6 | No secrets committed                                               | ✅ Done        |
 | 3.6 | NoSQL-injection protection                                         | ✅ Foundation  |
@@ -309,6 +330,9 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | 3.8 | docker-compose (app + MongoDB, single command)                    | ✅ Done        |
 | 3.8 | Env-based configuration                                            | ✅ Done        |
 | 3.9 | README: setup, design decisions, API docs                          | ✅ In progress |
+
+¹ `authenticate` and `authorize` middleware are implemented and test-covered; `authorize('admin')` is attached to admin-only routes as they are built (Phase 2–3).
+² Signup/login are Zod-validated; product/order write endpoints get their Zod schemas in Phase 2–3.
 
 ## Stretch Goals
 
