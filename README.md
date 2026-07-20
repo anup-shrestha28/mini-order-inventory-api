@@ -21,10 +21,11 @@ docker compose up --build     # builds the API and starts it together with Mongo
 
 Once it's running:
 
-| What          | Where                                                                                  |
-| ------------- | -------------------------------------------------------------------------------------- |
-| API base      | `http://localhost:3000/api/v1`                                                         |
-| Health check  | `http://localhost:3000/health` → `{"success":true,"data":{"status":"ok","db":"connected"}}` |
+| What                       | Where                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| API base                   | `http://localhost:3000/api/v1`                                                         |
+| Interactive docs (Swagger) | `http://localhost:3000/api/docs`                                                       |
+| Health check               | `http://localhost:3000/health` → `{"success":true,"data":{"status":"ok","db":"connected"}}` |
 
 **Inspect the stored data** (no extra tools needed — opens a Mongo shell inside the container):
 
@@ -216,6 +217,8 @@ All configuration is via environment variables (never hard-coded). See `.env.exa
 
 Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"? } }`. More endpoints are documented here as they land.
 
+**Interactive Swagger UI:** `http://localhost:3000/api/docs` (raw OpenAPI spec at `/api/docs.json`). Click **Authorize** and paste a token from `/auth/login` to try protected endpoints in the browser.
+
 | Method | Endpoint                | Auth   | Description                                        |
 | ------ | ----------------------- | ------ | -------------------------------------------------- |
 | GET    | `/health`               | public | Liveness + DB connection status                    |
@@ -223,7 +226,12 @@ Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": 
 | POST   | `/api/v1/auth/signup`   | public | Register a new customer; returns `{ user, token }` |
 | POST   | `/api/v1/auth/login`    | public | Authenticate; returns `{ user, token }`            |
 | GET    | `/api/v1/auth/me`       | Bearer | The current authenticated user                     |
-| _…products, orders endpoints documented as they are implemented…_ | | | |
+| GET    | `/api/v1/products`      | public | List products — pagination + filter (`category`, `minPrice`/`maxPrice`, `sort`) |
+| GET    | `/api/v1/products/:id`  | public | Get a single product                               |
+| POST   | `/api/v1/products`      | admin  | Create a product                                   |
+| PATCH  | `/api/v1/products/:id`  | admin  | Update a product                                   |
+| DELETE | `/api/v1/products/:id`  | admin  | Delete a product                                   |
+| _…orders endpoints documented as they are implemented…_ | | | |
 
 ### Example requests
 
@@ -241,14 +249,26 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 # Call a protected endpoint with the token from the response
 curl http://localhost:3000/api/v1/auth/me \
   -H "Authorization: Bearer <TOKEN>"
+
+# List products (public) — pagination + filtering
+curl "http://localhost:3000/api/v1/products?page=1&limit=10&category=electronics"
+
+# Create a product (requires an ADMIN token — see Test Accounts below)
+curl -X POST http://localhost:3000/api/v1/products \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Wireless Mouse","price":25.99,"stock":100,"category":"electronics"}'
 ```
 
 ### Test Accounts
 
 - **Sign up** (`POST /api/v1/auth/signup`) creates a **customer** by default — self-registering as an admin is intentionally *not* allowed (that would defeat role-based access control).
-- To exercise **admin-only** endpoints, the project ships a small, idempotent **seed script** (`npm run seed`, or `docker compose exec app npm run seed`) that creates a documented admin account (credentials configurable via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars, with sensible defaults printed on run) plus a few sample products, so a reviewer can log in as admin immediately.
-
-> _The seed script and its documented credentials are delivered in the authentication/product phases; this section records the intended, reviewer-friendly approach._
+- To exercise **admin-only** endpoints, run the idempotent **seed script**, which creates an admin account plus a few sample products:
+  ```bash
+  docker compose exec app npm run seed     # when running via Docker
+  npm run build && npm run seed            # locally (or: npm run seed:dev)
+  ```
+  Default admin credentials (override via `ADMIN_EMAIL` / `ADMIN_PASSWORD`): **`admin@example.com` / `admin12345`**. Log in with these via `POST /auth/login` to get an admin token.
 
 ## Concurrency & Data-Modeling Design
 
@@ -313,15 +333,15 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | - | -------------------------------------------------------------------- | -------------- |
 | 3.1 | JWT auth (signup/login), hashed passwords (bcrypt)                 | ✅ Done        |
 | 3.1 | Roles (admin/customer) + auth & role middleware                    | ✅ Done¹       |
-| 3.1 | Admin: CRUD products + view all orders                             | ⏳ Phase 2–3   |
-| 3.1 | Customer: browse products, place/view own orders                  | ⏳ Phase 2–3   |
-| 3.2 | Product CRUD (name, price, stock, category), admin-only writes     | ⏳ Phase 2     |
-| 3.2 | Model-level schema validation                                      | ⏳ Phase 2     |
+| 3.1 | Admin: CRUD products / view all orders                             | ✅ Products / ⏳ orders (P3) |
+| 3.1 | Customer: browse products / place & view own orders                | ✅ Browse / ⏳ orders (P3)   |
+| 3.2 | Product CRUD (name, price, stock, category), admin-only writes     | ✅ Done        |
+| 3.2 | Model-level schema validation                                      | ✅ Done        |
 | 3.3 | Order creation: atomic stock validation + decrement (no oversell)  | ⏳ Phase 3     |
 | 3.3 | Clear errors: insufficient stock / missing product / bad quantity  | ⏳ Phase 3     |
-| 3.4 | Pagination + at least one filter on a list endpoint                | ⏳ Phase 2–3   |
+| 3.4 | Pagination + at least one filter on a list endpoint                | ✅ Done        |
 | 3.5 | Consistent structured error format                                 | ✅ Done        |
-| 3.5 | Schema-based input validation on write endpoints (Zod)             | 🟡 Auth done²  |
+| 3.5 | Schema-based input validation on write endpoints (Zod)             | 🟡 Auth + products² |
 | 3.6 | Security middleware (helmet, cors)                                 | ✅ Foundation  |
 | 3.6 | No secrets committed                                               | ✅ Done        |
 | 3.6 | NoSQL-injection protection                                         | ✅ Foundation  |
@@ -332,7 +352,7 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | 3.9 | README: setup, design decisions, API docs                          | ✅ In progress |
 
 ¹ `authenticate` and `authorize` middleware are implemented and test-covered; `authorize('admin')` is attached to admin-only routes as they are built (Phase 2–3).
-² Signup/login are Zod-validated; product/order write endpoints get their Zod schemas in Phase 2–3.
+² Signup/login and all product write endpoints are Zod-validated (plus query validation on the product list); order write endpoints get their schemas in Phase 3.
 
 ## Stretch Goals
 

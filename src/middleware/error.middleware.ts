@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { ApiError } from '../utils/ApiError';
 import logger from '../utils/logger';
 import env from '../config/env';
@@ -25,6 +26,13 @@ export function errorHandler(
 
   if (err instanceof ApiError) {
     error = err;
+  } else if (err instanceof ZodError) {
+    // Schema validation thrown from a controller/service (e.g. query parsing).
+    const details = err.issues.map((issue) => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    error = new ApiError(400, 'Validation failed', { code: 'VALIDATION_ERROR', details });
   } else if (anyErr?.name === 'ValidationError' && anyErr.errors) {
     // Mongoose model-level validation
     const details = Object.values(anyErr.errors).map((e) => ({ field: e.path, message: e.message }));

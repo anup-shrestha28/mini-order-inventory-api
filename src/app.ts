@@ -4,13 +4,28 @@ import cors from 'cors';
 import mongoSanitize from 'express-mongo-sanitize';
 import mongoose from 'mongoose';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
 
 import env from './config/env';
 import logger from './utils/logger';
 import routes from './routes';
+import openapiSpec from './docs/openapi';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 
 const app = express();
+
+// --- API documentation (Swagger UI) ---
+// Mounted before the global strict CSP so Swagger UI's inline assets can load.
+// The docs are a read-only convenience, so a relaxed CSP here is acceptable.
+app.use(
+  '/api/docs',
+  helmet({ contentSecurityPolicy: false }),
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, { customSiteTitle: 'Mini Order & Inventory API — Docs' })
+);
+app.get('/api/docs.json', (_req, res) => {
+  res.json(openapiSpec);
+});
 
 // --- Security & parsing middleware ---
 app.use(helmet());

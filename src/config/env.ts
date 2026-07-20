@@ -19,6 +19,10 @@ const envSchema = z.object({
 
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
 
+  // Seed admin account (used by the seed script).
+  ADMIN_EMAIL: z.string().trim().toLowerCase().email().default('admin@example.com'),
+  ADMIN_PASSWORD: z.string().min(8).default('admin12345'),
+
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
 });
