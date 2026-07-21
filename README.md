@@ -13,7 +13,7 @@ Built with **Node.js + Express.js + MongoDB (Mongoose)**, fully containerized: o
 **Only requirement: Docker + Docker Compose.** No local Node.js, MongoDB install, or Atlas account needed.
 
 ```bash
-git clone <repository-url>
+git clone git@github.com:anup-shrestha28/mini-order-inventory-api.git
 cd mini-order-inventory-api
 cp .env.example .env          # the only manual step — defaults work as-is
 docker compose up --build     # builds the API and starts it together with MongoDB
