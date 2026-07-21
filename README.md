@@ -51,7 +51,7 @@ docker compose down       # stop the stack (stored data is preserved)
 docker compose down -v    # stop and wipe all stored data
 ```
 
-> **Trying the API** (signup → login → create product → place order) and the **pre-seeded admin test account** are documented under [API Documentation](#api-documentation) and [Test Accounts](#test-accounts).
+> **Trying the API** (signup → login → create product → place order) and **how to get an admin account** are documented under [API Documentation](#api-documentation) and [Accounts and Roles](#accounts-and-roles).
 
 ---
 
@@ -68,12 +68,14 @@ docker compose down -v    # stop and wipe all stored data
    - [Option B — Local with MongoDB Atlas](#option-b--local-with-mongodb-atlas)
 8. [Environment Variables](#environment-variables)
 9. [API Documentation](#api-documentation)
-10. [Concurrency & Data-Modeling Design](#concurrency--data-modeling-design)
-11. [Testing](#testing)
-12. [Security](#security)
-13. [Requirement Coverage](#requirement-coverage)
-14. [Stretch Goals](#stretch-goals)
-15. [License](#license)
+10. [Accounts and Roles](#accounts-and-roles)
+11. [Concurrency & Data-Modeling Design](#concurrency--data-modeling-design)
+12. [Testing](#testing)
+13. [Security](#security)
+14. [Requirement Coverage](#requirement-coverage)
+15. [Stretch Goals](#stretch-goals)
+16. [Deployment & Scaling](#deployment--scaling)
+17. [License](#license)
 
 ---
 
@@ -269,22 +271,47 @@ curl http://localhost:3000/api/v1/auth/me \
 # List products (public) — pagination + filtering
 curl "http://localhost:3000/api/v1/products?page=1&limit=10&category=electronics"
 
-# Create a product (requires an ADMIN token — see Test Accounts below)
+# Create a product (requires an ADMIN token — see "Accounts and Roles")
 curl -X POST http://localhost:3000/api/v1/products \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"name":"Wireless Mouse","price":25.99,"stock":100,"category":"electronics"}'
 ```
 
-### Test Accounts
+## Accounts and Roles
 
-- **Sign up** (`POST /api/v1/auth/signup`) creates a **customer** by default — self-registering as an admin is intentionally *not* allowed (that would defeat role-based access control).
-- To exercise **admin-only** endpoints, run the idempotent **seed script**, which creates an admin account plus a few sample products:
-  ```bash
-  docker compose exec app npm run seed     # when running via Docker
-  npm run build && npm run seed            # locally (or: npm run seed:dev)
-  ```
-  Default admin credentials (override via `ADMIN_EMAIL` / `ADMIN_PASSWORD`): **`admin@example.com` / `admin12345`**. Log in with these via `POST /auth/login` to get an admin token.
+The API has **two roles**, created two different ways:
+
+| Role         | How the account is created                                    | What it can do                                                              |
+| ------------ | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **customer** | Anyone self-registers via `POST /api/v1/auth/signup`          | Browse products; place, view & cancel **their own** orders                  |
+| **admin**    | Provisioned by the **seed script** (below) — *never* via signup | Everything a customer can, **plus** create/update/delete products & view **all** orders |
+
+> **Why can't I sign up as an admin?** Letting anyone self-register as an admin would defeat access control — so `signup` always creates a `customer`. Admin accounts are created deliberately, by the seed script.
+
+### How to get an admin account and token (3 steps)
+
+**1. Create the admin.** This is idempotent (safe to re-run); it also inserts a few sample products and prints the credentials:
+
+```bash
+docker compose exec app npm run seed        # when running via Docker
+# or, running locally:  npm run build && npm run seed     (dev shortcut: npm run seed:dev)
+```
+
+**2. Log in as the admin** to get a JWT:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin12345"}'
+```
+
+In Swagger (`/api/docs`): open **POST `/auth/login`** → *Try it out* → *Execute*, copy the `token`, then click **Authorize** (top-right) and paste it.
+
+**3. Use the token** on admin-only endpoints via the `Authorization: Bearer <token>` header.
+
+**Default admin credentials:** `admin@example.com` / `admin12345`
+**To use your own:** set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` **before** running the seed (Docker Compose passes them through automatically).
 
 ## Concurrency & Data-Modeling Design
 
