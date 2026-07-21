@@ -10,12 +10,9 @@ export const createProductSchema = z.object({
   category: z.string().trim().toLowerCase().min(1, 'Category is required'),
 });
 
-// All fields optional for a partial update, but at least one must be supplied.
-export const updateProductSchema = createProductSchema
-  .partial()
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'Provide at least one field to update',
-  });
+// PUT replaces the entire product, so an update requires the full representation
+// (the same required fields as create).
+export const updateProductSchema = createProductSchema;
 
 // Query params arrive as strings, so numbers are coerced. Provides pagination
 // (page/limit) plus filters (category, price range) and a bounded sort.

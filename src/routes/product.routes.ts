@@ -13,7 +13,7 @@ router.get('/:id', productController.getProduct);
 
 // Admin-only writes — role enforced in middleware, not in the controller.
 router.post('/', authenticate, authorize('admin'), validate(createProductSchema), productController.createProduct);
-router.patch(
+router.put(
   '/:id',
   authenticate,
   authorize('admin'),

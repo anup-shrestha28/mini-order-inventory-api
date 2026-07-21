@@ -11,6 +11,7 @@ import logger from './utils/logger';
 import { connectDB, disconnectDB } from './config/db';
 import { User } from './models/user.model';
 import { Product } from './models/product.model';
+import { invalidateProductListCache } from './services/product.service';
 
 const SAMPLE_PRODUCTS = [
   { name: 'Wireless Mouse', price: 25.99, stock: 100, category: 'electronics' },
@@ -45,6 +46,9 @@ async function seed(): Promise<void> {
   } else {
     logger.info(`Products already present (${existingCount}) — skipping sample insert`);
   }
+
+  // Reflect the seeded catalog in any cached product list.
+  await invalidateProductListCache();
 
   // Print the admin credentials so a reviewer can log in immediately.
   console.log(

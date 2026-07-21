@@ -126,25 +126,37 @@ describe('Products — get by id', () => {
 });
 
 describe('Products — update & delete (admin only)', () => {
-  it('admin can update a product (200)', async () => {
+  it('admin can replace a product (200)', async () => {
     const { token } = await makeUser('admin', 'admin@example.com');
     const product = await Product.create(sampleProduct);
     const res = await request(app)
-      .patch(`/api/v1/products/${product.id}`)
+      .put(`/api/v1/products/${product.id}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ price: 99.99 });
+      .send({ name: 'Test Widget', price: 99.99, stock: 10, category: 'gadgets' });
 
     expect(res.status).toBe(200);
     expect(res.body.data.product.price).toBe(99.99);
   });
 
-  it('customer cannot update a product (403)', async () => {
+  it('rejects a partial PUT body (400) — full representation required', async () => {
+    const { token } = await makeUser('admin', 'admin@example.com');
+    const product = await Product.create(sampleProduct);
+    const res = await request(app)
+      .put(`/api/v1/products/${product.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ price: 99.99 }); // missing name / stock / category
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('customer cannot replace a product (403)', async () => {
     const { token } = await makeUser('customer', 'cust@example.com');
     const product = await Product.create(sampleProduct);
     const res = await request(app)
-      .patch(`/api/v1/products/${product.id}`)
+      .put(`/api/v1/products/${product.id}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ price: 99.99 });
+      .send({ name: 'X', price: 99.99, stock: 5, category: 'gadgets' });
 
     expect(res.status).toBe(403);
   });
@@ -172,12 +184,12 @@ describe('Products — update & delete (admin only)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('returns 404 when updating a non-existent product', async () => {
+  it('returns 404 when replacing a non-existent product', async () => {
     const { token } = await makeUser('admin', 'admin@example.com');
     const res = await request(app)
-      .patch('/api/v1/products/6a5e61d8d8fc9709046d5236')
+      .put('/api/v1/products/6a5e61d8d8fc9709046d5236')
       .set('Authorization', `Bearer ${token}`)
-      .send({ price: 5 });
+      .send({ name: 'X', price: 5, stock: 1, category: 'x' });
 
     expect(res.status).toBe(404);
   });

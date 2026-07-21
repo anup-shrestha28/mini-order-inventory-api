@@ -10,13 +10,19 @@ import type {
   ListProductsQuery,
 } from '../validators/product.validator';
 
-// Product-list cache: keys are versioned; any product write bumps the version,
-// which instantly invalidates every cached list page (old keys expire via TTL).
+// Product-list cache: keys are versioned; bumping the version instantly
+// invalidates every cached list page (old keys expire via TTL). ANY operation
+// that changes the catalog OR a product's stock must call this — including
+// order placement/cancellation, not just product CRUD.
 const CACHE_VERSION_KEY = 'products:cache:version';
+
+export async function invalidateProductListCache(): Promise<void> {
+  await cache.bumpVersion(CACHE_VERSION_KEY);
+}
 
 export async function createProduct(input: CreateProductInput): Promise<ProductDocument> {
   const product = await Product.create(input);
-  await cache.bumpVersion(CACHE_VERSION_KEY);
+  await invalidateProductListCache();
   return product;
 }
 
@@ -72,13 +78,13 @@ export async function updateProduct(
     runValidators: true,
   });
   if (!product) throw ApiError.notFound('Product not found');
-  await cache.bumpVersion(CACHE_VERSION_KEY);
+  await invalidateProductListCache();
   return product;
 }
 
 export async function deleteProduct(id: string): Promise<ProductDocument> {
   const product = await Product.findByIdAndDelete(id);
   if (!product) throw ApiError.notFound('Product not found');
-  await cache.bumpVersion(CACHE_VERSION_KEY);
+  await invalidateProductListCache();
   return product;
 }

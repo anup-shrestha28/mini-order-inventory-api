@@ -3,6 +3,7 @@ import { Product } from '../models/product.model';
 import { Order, IOrder, IOrderItem, OrderDocument } from '../models/order.model';
 import { ApiError } from '../utils/ApiError';
 import { buildPaginationMeta } from '../utils/ApiResponse';
+import { invalidateProductListCache } from './product.service';
 import type { UserRole } from '../models/user.model';
 import type { OrderItemInput, ListOrdersQuery } from '../validators/order.validator';
 
@@ -94,6 +95,8 @@ export async function createOrder(
   }
 
   if (!order) throw ApiError.internal('Order could not be created');
+  // Order placement changed stock → invalidate the product-list cache so reads are immediately fresh.
+  await invalidateProductListCache();
   return order;
 }
 
@@ -171,5 +174,7 @@ export async function cancelOrder(id: string, currentUser: CurrentUser): Promise
   }
 
   if (!order) throw ApiError.internal('Order could not be cancelled');
+  // Cancellation restored stock → invalidate the product-list cache.
+  await invalidateProductListCache();
   return order;
 }

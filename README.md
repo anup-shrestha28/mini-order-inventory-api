@@ -242,7 +242,7 @@ Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": 
 | GET    | `/api/v1/products`      | public | List products — pagination + filter (`category`, `minPrice`/`maxPrice`, `sort`) |
 | GET    | `/api/v1/products/:id`  | public | Get a single product                               |
 | POST   | `/api/v1/products`      | admin  | Create a product                                   |
-| PATCH  | `/api/v1/products/:id`  | admin  | Update a product                                   |
+| PUT    | `/api/v1/products/:id`  | admin  | Replace a product (full representation)            |
 | DELETE | `/api/v1/products/:id`  | admin  | Delete a product                                   |
 | POST   | `/api/v1/orders`        | auth   | Place an order — atomic stock decrement (201)      |
 | GET    | `/api/v1/orders`        | auth   | List orders — own (customer) / all (admin); paginated + filter (`status`, `from`/`to`) |

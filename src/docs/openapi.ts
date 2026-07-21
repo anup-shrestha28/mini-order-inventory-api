@@ -271,25 +271,15 @@ const openapiSpec = {
           404: { description: 'Product not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
-      patch: {
+      put: {
         tags: ['Products'],
-        summary: 'Update a product (admin only)',
+        summary: 'Replace a product (admin only) — full representation',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  price: { type: 'number', minimum: 0 },
-                  stock: { type: 'integer', minimum: 0 },
-                  category: { type: 'string' },
-                },
-              },
-            },
+            'application/json': { schema: { $ref: '#/components/schemas/ProductInput' } },
           },
         },
         responses: {
