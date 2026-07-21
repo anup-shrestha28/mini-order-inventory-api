@@ -4,7 +4,7 @@ A backend service for a small e-commerce operation that manages **products, user
 
 Built with **Node.js + Express.js + MongoDB (Mongoose)**, fully containerized: one command brings up the API, MongoDB, and Redis.
 
-> **Status:** ✅ Feature-complete — every core requirement implemented and tested (45 automated tests, incl. a concurrency/race test), plus several stretch goals. See [Requirement Coverage](#requirement-coverage).
+> **Status:** ✅ Feature-complete — every core requirement implemented and tested (46 automated tests, incl. a concurrency/race test), plus several stretch goals. See [Requirement Coverage](#requirement-coverage).
 
 ---
 
@@ -357,7 +357,7 @@ npm install
 npm test
 ```
 
-Tests use an **in-memory MongoDB replica set** (`mongodb-memory-server`), so no external database is needed (the MongoDB binary is downloaded once on first run). **45 tests** cover CRUD paths, auth & role enforcement, request validation, order edge cases (duplicate line items, all-or-nothing rollback), and a **concurrency/race test** that fires 20 simultaneous orders against stock of 10 and asserts exactly 10 succeed with stock never going negative.
+Tests use an **in-memory MongoDB replica set** (`mongodb-memory-server`), so no external database is needed (the MongoDB binary is downloaded once on first run). **46 tests** cover CRUD paths, auth & role enforcement, request validation, order edge cases (duplicate line items, all-or-nothing rollback), and a **concurrency/race test** that fires 20 simultaneous orders against stock of 10 and asserts exactly 10 succeed with stock never going negative.
 
 ## Security
 
@@ -388,7 +388,7 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | 3.6 | Security middleware (helmet, cors)                                 | ✅ Done        |
 | 3.6 | No secrets committed                                               | ✅ Done        |
 | 3.6 | NoSQL-injection protection                                         | ✅ Done        |
-| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ✅ Done (45 tests) |
+| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ✅ Done (46 tests) |
 | 3.8 | Dockerfile                                                         | ✅ Done        |
 | 3.8 | docker-compose (app + MongoDB + Redis, single command)            | ✅ Done        |
 | 3.8 | Env-based configuration                                            | ✅ Done        |
