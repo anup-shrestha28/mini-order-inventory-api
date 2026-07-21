@@ -28,6 +28,10 @@ const envSchema = z.object({
 
   // CORS allowed origins: '*' for all, or a comma-separated list.
   CORS_ORIGIN: z.string().default('*'),
+
+  // Optional Redis cache. If unset, caching is transparently disabled.
+  REDIS_URL: z.string().optional(),
+  CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -35,7 +39,6 @@ export type Env = z.infer<typeof envSchema>;
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  // eslint-disable-next-line no-console
   console.error(
     '❌ Invalid environment configuration:\n',
     JSON.stringify(parsed.error.flatten().fieldErrors, null, 2)

@@ -11,8 +11,8 @@ services:
     container_name: moi_mongo
     restart: unless-stopped
     command: ['--replSet', 'rs0', '--bind_ip_all']
-    ports:
-      - '27017:27017'
+    # Not published to the host — the app reaches Mongo over the Compose network.
+    # (To inspect from the host GUI, add `ports: ['27017:27017']` here.)
     volumes:
       - mongo_data:/data/db
     # Initializes the replica set on first boot, then reports healthy only once
@@ -50,8 +50,21 @@ services:
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-60}
     ports:
       - '3000:3000'
+
+  redis:
+    image: redis:7-alpine
+    container_name: moi_redis
+    restart: unless-stopped
+    # Internal only — reached by the app over the Compose network.
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mongo_data:

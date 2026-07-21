@@ -3,6 +3,7 @@ import app from './app';
 import env from './config/env';
 import logger from './utils/logger';
 import { connectDB, disconnectDB } from './config/db';
+import { cache } from './config/cache';
 
 let server: Server | undefined;
 
@@ -27,6 +28,7 @@ async function shutdown(code = 0): Promise<void> {
     const s = server;
     if (s) await new Promise<void>((resolve) => s.close(() => resolve()));
     await disconnectDB();
+    await cache.disconnect();
   } catch (err) {
     logger.error({ err }, 'Error during shutdown');
   } finally {

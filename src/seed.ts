@@ -47,7 +47,6 @@ async function seed(): Promise<void> {
   }
 
   // Print the admin credentials so a reviewer can log in immediately.
-  // eslint-disable-next-line no-console
   console.log(
     `\n✅ Seed complete.\n   Admin login:  email="${env.ADMIN_EMAIL}"  password="${env.ADMIN_PASSWORD}"\n`
   );

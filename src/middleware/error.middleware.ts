@@ -14,7 +14,6 @@ export function notFoundHandler(req: Request, _res: Response, next: NextFunction
  * cast errors, duplicate keys) into the API's consistent error envelope so
  * clients always get `{ success: false, error: { code, message, details? } }`.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: unknown,
   _req: Request,

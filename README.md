@@ -2,9 +2,9 @@
 
 A backend service for a small e-commerce operation that manages **products, users, and orders**, with a deliberate focus on **concurrency-safe stock management in MongoDB** — an order can **never oversell stock**, even under simultaneous requests.
 
-Built with **Node.js + Express.js + MongoDB (Mongoose)** and fully containerized: one command brings up the API and its database.
+Built with **Node.js + Express.js + MongoDB (Mongoose)**, fully containerized: one command brings up the API, MongoDB, and Redis.
 
-> **Status:** 🚧 In active development. Progress is tracked in [Requirement Coverage](#requirement-coverage).
+> **Status:** ✅ Feature-complete — every core requirement implemented and tested (45 automated tests, incl. a concurrency/race test), plus several stretch goals. See [Requirement Coverage](#requirement-coverage).
 
 ---
 
@@ -36,7 +36,7 @@ docker exec -it moi_mongo mongosh
 #   db.products.find().pretty()
 ```
 
-Or connect **MongoDB Compass** to `mongodb://localhost:27017/?directConnection=true` (the `directConnection=true` is required because Mongo runs as a replica set).
+> For a GUI like **MongoDB Compass**: Mongo's port isn't published to the host by default (so it can't clash with a MongoDB you already run locally). Add `ports: ['27017:27017']` to the `mongo` service in `docker-compose.yml`, then connect to `mongodb://localhost:27017/?directConnection=true` (the `directConnection=true` is required because Mongo runs as a replica set).
 
 **Run the automated test suite** (needs Node 20+; runs *without* Docker, using an in-memory MongoDB):
 
@@ -51,7 +51,7 @@ docker compose down       # stop the stack (stored data is preserved)
 docker compose down -v    # stop and wipe all stored data
 ```
 
-> **Trying the API** (signup → login → create product → place order) and the **pre-seeded admin test account** are documented under [API Documentation](#api-documentation) and [Test Accounts](#test-accounts) — populated as those endpoints are built in the next phases.
+> **Trying the API** (signup → login → create product → place order) and the **pre-seeded admin test account** are documented under [API Documentation](#api-documentation) and [Test Accounts](#test-accounts).
 
 ---
 
@@ -86,12 +86,15 @@ Admins manage a product catalog with stock levels; customers place orders agains
 - **JWT authentication** (signup / login) with hashed passwords
 - **Role-based access control** (`admin` / `customer`) enforced via middleware
 - **Product catalog CRUD** (admin-only writes) with **model-level validation**
-- **Concurrency-safe order creation** — atomically validates and decrements stock
-- **Pagination + filtering** on list endpoints
+- **Concurrency-safe order creation** — atomically validates and decrements stock; cancellation restores it
+- **Pagination + filtering** on product and order list endpoints
 - **Consistent, structured error responses**; schema-based request validation (Zod)
-- **Security hardening** — helmet, cors, NoSQL-injection sanitization, rate limiting
-- **Automated tests**, including a **concurrency / race-condition** test
-- **Dockerfile + docker-compose** (app + MongoDB) with **env-based config**
+- **Security hardening** — helmet, configurable cors, NoSQL-injection sanitization, rate limiting
+- **Interactive API docs** — Swagger UI (OpenAPI) at `/api/docs`
+- **Redis caching** on the product list, with version-based invalidation and graceful fallback
+- **Automated tests** (45), including a **concurrency / race-condition** test
+- **CI** — GitHub Actions runs lint + type-check + build + tests on every push
+- **Dockerfile + docker-compose** (app + MongoDB + Redis) with **env-based config**
 - **Structured logging** (pino) and a **`/health`** endpoint
 
 ## Tech Stack
@@ -106,8 +109,10 @@ Admins manage a product catalog with stock levels; customers place orders agains
 | Auth           | jsonwebtoken + bcryptjs                            | Standard JWT; `bcryptjs` is pure-JS → no native build in containers |
 | Validation     | Zod                                                | Declarative request-body/query validation, clear errors            |
 | Security       | helmet, cors, express-mongo-sanitize, express-rate-limit | Sensible defaults against common web/NoSQL-injection risks    |
+| Cache          | Redis 7 (ioredis)                                  | Product-list caching with graceful fallback + version invalidation  |
 | Logging        | pino / pino-http                                   | Fast structured JSON logging                                        |
 | Testing        | Jest, Supertest, mongodb-memory-server (repl. set) | Isolated, fast; supports transactions in-memory                     |
+| Lint / CI      | ESLint + GitHub Actions                            | lint + type-check + build + tests on every push                     |
 | Container      | Docker (multi-stage), docker-compose               | One-command, reproducible startup                                   |
 
 > **Stack note:** we use **Mongoose** over the native driver for its model-level validation (a requirement) and clean session/transaction API. We use **bcryptjs** rather than native `bcrypt` to keep the container build dependency-free and reliable.
@@ -158,7 +163,10 @@ mini-order-inventory-api/
 │   ├── app.ts           # Express app (middleware + routes wiring)
 │   └── server.ts        # bootstrap: connect DB, start listening
 ├── tests/               # Jest + Supertest suites (incl. concurrency test)
+├── docs/                # ARCHITECTURE.md (diagrams) + DEPLOYMENT.md (ops/scaling)
+├── .github/workflows/   # CI — lint + type-check + build + tests
 ├── dist/                # compiled JS output (generated by `npm run build`)
+├── eslint.config.js
 ├── tsconfig.json        # TypeScript config (dev / typecheck / tests)
 ├── tsconfig.build.json  # TypeScript config (production build → dist)
 ├── .env.example
@@ -212,10 +220,15 @@ All configuration is via environment variables (never hard-coded). See `.env.exa
 | `BCRYPT_SALT_ROUNDS`   | no       | `10`                            | bcrypt cost factor                           |
 | `RATE_LIMIT_WINDOW_MS` | no       | `900000`                        | Rate-limit window (ms)                       |
 | `RATE_LIMIT_MAX`       | no       | `100`                           | Max requests per window per IP               |
+| `CORS_ORIGIN`          | no       | `*`                             | Allowed origin(s): `*` or comma-separated    |
+| `ADMIN_EMAIL`          | no       | `admin@example.com`             | Seed admin email (`npm run seed`)            |
+| `ADMIN_PASSWORD`       | no       | `admin12345`                    | Seed admin password                          |
+| `REDIS_URL`            | no       | —                               | Enables product-list caching when set        |
+| `CACHE_TTL_SECONDS`    | no       | `60`                            | Product-list cache TTL (seconds)             |
 
 ## API Documentation
 
-Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"? } }`. More endpoints are documented here as they land.
+Base URL: `/api/v1`. All responses use the envelope `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"? } }`.
 
 **Interactive Swagger UI:** `http://localhost:3000/api/docs` (raw OpenAPI spec at `/api/docs.json`). Click **Authorize** and paste a token from `/auth/login` to try protected endpoints in the browser.
 
@@ -317,7 +330,7 @@ npm install
 npm test
 ```
 
-Tests use an **in-memory MongoDB replica set** (`mongodb-memory-server`), so no external database is needed (the MongoDB binary is downloaded once on first run). Coverage includes core CRUD paths, auth/role enforcement, order validation, and a **concurrency test** that fires many simultaneous orders against limited stock and asserts stock is never oversold.
+Tests use an **in-memory MongoDB replica set** (`mongodb-memory-server`), so no external database is needed (the MongoDB binary is downloaded once on first run). **45 tests** cover CRUD paths, auth & role enforcement, request validation, order edge cases (duplicate line items, all-or-nothing rollback), and a **concurrency/race test** that fires 20 simultaneous orders against stock of 10 and asserts exactly 10 succeed with stock never going negative.
 
 ## Security
 
@@ -345,27 +358,31 @@ Tracks every requirement from the assessment PDF. Updated as work lands.
 | 3.4 | Pagination + at least one filter (products & orders)               | ✅ Done        |
 | 3.5 | Consistent structured error format                                 | ✅ Done        |
 | 3.5 | Schema-based input validation on write endpoints (Zod)             | ✅ Done        |
-| 3.6 | Security middleware (helmet, cors)                                 | ✅ Foundation  |
+| 3.6 | Security middleware (helmet, cors)                                 | ✅ Done        |
 | 3.6 | No secrets committed                                               | ✅ Done        |
-| 3.6 | NoSQL-injection protection                                         | ✅ Foundation  |
-| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ✅ Done (44 tests) |
+| 3.6 | NoSQL-injection protection                                         | ✅ Done        |
+| 3.7 | Automated tests incl. a concurrency/race scenario + CRUD           | ✅ Done (45 tests) |
 | 3.8 | Dockerfile                                                         | ✅ Done        |
-| 3.8 | docker-compose (app + MongoDB, single command)                    | ✅ Done        |
+| 3.8 | docker-compose (app + MongoDB + Redis, single command)            | ✅ Done        |
 | 3.8 | Env-based configuration                                            | ✅ Done        |
-| 3.9 | README: setup, design decisions, API docs                          | ✅ In progress |
+| 3.9 | README: setup, design decisions, API docs                          | ✅ Done        |
 
 Access control is enforced in middleware (`authenticate` + `authorize`), not in controllers: `authorize('admin')` guards product writes, and order routes are scoped by ownership (customers see/act on only their own orders; admins on any).
 
 ## Stretch Goals
 
-| Goal (from PDF §4)                                          | Status      |
-| ---------------------------------------------------------- | ----------- |
-| CI pipeline (lint + tests on push)                         | ⏳ Optional  |
-| Structured logging (pino) + `/health` endpoint             | ✅ Done      |
-| Rate limiting on a public endpoint                         | ✅ Done      |
-| Caching (Redis) for a read-heavy endpoint                  | ⏳ Optional  |
-| Live cloud deployment                                      | ⏳ Optional  |
-| Microservice / Kubernetes decomposition note              | ⏳ Optional  |
+| Goal (from PDF §4)                                          | Status                                            |
+| ---------------------------------------------------------- | ------------------------------------------------- |
+| CI pipeline (lint + tests on push)                         | ✅ Done — GitHub Actions                          |
+| Structured logging (pino) + `/health` endpoint             | ✅ Done                                           |
+| Rate limiting on a public endpoint                         | ✅ Done                                           |
+| Caching (Redis) for a read-heavy endpoint                  | ✅ Done — product list + version invalidation     |
+| Microservice / Kubernetes decomposition note              | ✅ Done — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Live cloud deployment                                      | 📝 Approach documented (no live URL — needs a cloud account) |
+
+## Deployment & Scaling
+
+The app is a stateless, env-configured container — deployment-ready. See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the AWS deployment approach, how the product listing scales to millions of documents, the microservice decomposition, and how it runs on Kubernetes.
 
 ## License
 
